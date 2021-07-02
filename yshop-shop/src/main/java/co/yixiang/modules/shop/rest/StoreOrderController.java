@@ -6,6 +6,7 @@
  */
 package co.yixiang.modules.shop.rest;
 
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -14,26 +15,30 @@ import co.yixiang.annotation.AnonymousAccess;
 import co.yixiang.constant.ShopConstants;
 import co.yixiang.dozer.service.IGenerator;
 import co.yixiang.enums.OrderInfoEnum;
+import co.yixiang.enums.OrderLogEnum;
 import co.yixiang.exception.BadRequestException;
 import co.yixiang.logging.aop.log.Log;
 import co.yixiang.modules.activity.service.YxStorePinkService;
+import co.yixiang.modules.aop.NoRepeatSubmit;
 import co.yixiang.modules.shop.domain.YxStoreOrder;
 import co.yixiang.modules.shop.domain.YxStoreOrderStatus;
-import co.yixiang.modules.shop.domain.YxWechatUser;
+import co.yixiang.modules.shop.domain.YxUser;
 import co.yixiang.modules.shop.service.YxExpressService;
 import co.yixiang.modules.shop.service.YxStoreOrderService;
 import co.yixiang.modules.shop.service.YxStoreOrderStatusService;
-import co.yixiang.modules.shop.service.YxWechatUserService;
-import co.yixiang.modules.shop.service.dto.*;
+import co.yixiang.modules.shop.service.YxUserService;
+import co.yixiang.modules.shop.service.dto.OrderCountDto;
+import co.yixiang.modules.shop.service.dto.WechatUserDto;
+import co.yixiang.modules.shop.service.dto.YxExpressDto;
+import co.yixiang.modules.shop.service.dto.YxStoreOrderDto;
+import co.yixiang.modules.shop.service.dto.YxStoreOrderQueryCriteria;
 import co.yixiang.modules.shop.service.param.ExpressParam;
 import co.yixiang.mp.service.YxTemplateService;
 import co.yixiang.tools.express.ExpressService;
 import co.yixiang.tools.express.dao.ExpressInfo;
-import co.yixiang.utils.OrderUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
@@ -45,12 +50,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -72,22 +86,22 @@ public class StoreOrderController {
     private final YxStoreOrderService yxStoreOrderService;
     private final YxStoreOrderStatusService yxStoreOrderStatusService;
     private final YxExpressService yxExpressService;
-    private final YxWechatUserService wechatUserService;
+    private final YxUserService userService;
     private final RedisTemplate<String, String> redisTemplate;
     private final YxTemplateService templateService;
     private final ExpressService expressService;
 
 
     public StoreOrderController(IGenerator generator, YxStoreOrderService yxStoreOrderService, YxStoreOrderStatusService yxStoreOrderStatusService,
-                                YxExpressService yxExpressService, YxWechatUserService wechatUserService,
-                                RedisTemplate<String, String> redisTemplate,
-                                YxTemplateService templateService, YxStorePinkService storePinkService,
-                                ExpressService expressService) {
+                                 YxExpressService yxExpressService, YxUserService  userService,
+                                 RedisTemplate<String, String> redisTemplate,
+                                 YxTemplateService templateService, YxStorePinkService storePinkService,
+                                 ExpressService expressService) {
         this.generator = generator;
         this.yxStoreOrderService = yxStoreOrderService;
         this.yxStoreOrderStatusService = yxStoreOrderStatusService;
         this.yxExpressService = yxExpressService;
-        this.wechatUserService = wechatUserService;
+        this.userService = userService;
         this.redisTemplate = redisTemplate;
         this.templateService = templateService;
         this.expressService = expressService;
@@ -124,82 +138,11 @@ public class StoreOrderController {
                                            @RequestParam(name = "orderStatus") String orderStatus,
                                            @RequestParam(name = "orderType") String orderType) {
 
-
-        criteria.setShippingType(1);//默认查询所有快递订单
-        //订单状态查询
-        if (StrUtil.isNotEmpty(orderStatus)) {
-            switch (orderStatus) {
-                case "1":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setStatus(0);
-                    criteria.setRefundStatus(0);
-                    break;
-                case "2":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setStatus(1);
-                    criteria.setRefundStatus(0);
-                    break;
-                case "3":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setStatus(2);
-                    criteria.setRefundStatus(0);
-                    break;
-                case "4":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setStatus(3);
-                    criteria.setRefundStatus(0);
-                    break;
-                case "-1":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setRefundStatus(1);
-                    break;
-                case "-2":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setRefundStatus(2);
-                    break;
-                case "-4":
-                    criteria.setIsDel(1);
-                    break;
-                default:
-                    criteria.setIsDel(0);
-                    criteria.setPaid(0);
-                    criteria.setStatus(0);
-                    criteria.setRefundStatus(0);
-            }
-        }
-        //订单类型查询
-        if (StrUtil.isNotEmpty(orderType)) {
-            switch (orderType) {
-                case "2":
-                    criteria.setNewCombinationId(0);
-                    break;
-                case "3":
-                    criteria.setNewSeckillId(0);
-                    break;
-                case "4":
-                    criteria.setNewBargainId(0);
-                    break;
-                case "5":
-                    criteria.setShippingType(2);
-                    break;
-                default:
-                    criteria.setBargainId(0);
-                    criteria.setCombinationId(0);
-                    criteria.setSeckillId(0);
-            }
-        }
-
-
-        return new ResponseEntity(yxStoreOrderService.queryAll(criteria, pageable), HttpStatus.OK);
+        return new ResponseEntity(yxStoreOrderService.queryAll(handleQuery(criteria,orderStatus,orderType), pageable), HttpStatus.OK);
     }
 
 
+    @NoRepeatSubmit
     @ApiOperation(value = "发货")
     @PutMapping(value = "/yxStoreOrder")
     @PreAuthorize("hasAnyRole('admin','YXSTOREORDER_ALL','YXSTOREORDER_EDIT')")
@@ -227,19 +170,16 @@ public class StoreOrderController {
         storeOrderStatus.setChangeType("delivery_goods");
         storeOrderStatus.setChangeMessage("已发货 快递公司：" + resources.getDeliveryName()
                 + " 快递单号：" + resources.getDeliveryId());
-        storeOrderStatus.setChangeTime(OrderUtil.getSecondTimestampTwo());
+        storeOrderStatus.setChangeTime(new Date());
 
         yxStoreOrderStatusService.save(storeOrderStatus);
 
         //模板消息通知
         try {
-            YxWechatUserDto wechatUser = generator.convert(wechatUserService.getOne(new LambdaQueryWrapper<YxWechatUser>().eq(YxWechatUser::getUid, resources.getUid())), YxWechatUserDto.class);
-            if (ObjectUtil.isNotNull(wechatUser)) {
-                //公众号与小程序打通统一公众号模板通知
-                if (StrUtil.isNotBlank(wechatUser.getOpenid())) {
-                    templateService.deliverySuccessNotice(resources.getOrderId(),
-                            expressDTO.getName(), resources.getDeliveryId(), wechatUser.getOpenid());
-                }
+            String openid = this.getUserOpenid(resources.getUid());
+            if(StrUtil.isNotBlank(openid)){
+                templateService.deliverySuccessNotice(resources.getOrderId(),
+                        expressDTO.getName(), resources.getDeliveryId(), openid);
             }
         } catch (Exception e) {
             log.info("当前用户不是微信用户不能发送模板消息哦!");
@@ -309,14 +249,10 @@ public class StoreOrderController {
 
         //模板消息通知
         try {
-            YxWechatUserDto wechatUser = generator.convert(wechatUserService.getOne(new LambdaQueryWrapper<YxWechatUser>().eq(YxWechatUser::getUid, resources.getUid())), YxWechatUserDto.class);
-            if (ObjectUtil.isNotNull(wechatUser)) {
-                //公众号与小程序打通统一公众号模板通知
-                if (StrUtil.isNotBlank(wechatUser.getOpenid())) {
-                    templateService.refundSuccessNotice(resources.getOrderId(),
-                            resources.getPayPrice().toString(), wechatUser.getOpenid(),
-                            OrderUtil.stampToDate(resources.getAddTime().toString()));
-                }
+            String openid = this.getUserOpenid(resources.getUid());
+            if(StrUtil.isNotBlank(openid)){
+                templateService.refundSuccessNotice(resources.getOrderId(),
+                        resources.getPayPrice().toString(), openid, DateUtil.formatTime(new Date()));
             }
         } catch (Exception e) {
             log.info("当前用户不是微信用户不能发送模板消息哦!");
@@ -364,9 +300,9 @@ public class StoreOrderController {
 
         YxStoreOrderStatus storeOrderStatus = new YxStoreOrderStatus();
         storeOrderStatus.setOid(resources.getId());
-        storeOrderStatus.setChangeType("order_edit");
+        storeOrderStatus.setChangeType(OrderLogEnum.ORDER_EDIT.getValue());
         storeOrderStatus.setChangeMessage("修改订单价格为：" + resources.getPayPrice());
-        storeOrderStatus.setChangeTime(OrderUtil.getSecondTimestampTwo());
+        storeOrderStatus.setChangeTime(new Date());
 
         yxStoreOrderStatusService.save(storeOrderStatus);
         return new ResponseEntity(HttpStatus.OK);
@@ -423,57 +359,91 @@ public class StoreOrderController {
                                               Pageable pageable,
                                               String orderStatus,
                                               String orderType) {
-        criteria.setShippingType(1);//默认查询所有快递订单
+
+        return yxStoreOrderService.queryAll(handleQuery(criteria, orderStatus, orderType), pageable);
+    }
+
+    /**
+     * 获取openid
+     * @param uid uid
+     * @return String
+     */
+    private String getUserOpenid(Long uid){
+        YxUser yxUser = userService.getById(uid);
+        if(yxUser == null) {
+            return "";
+        }
+
+        WechatUserDto wechatUserDto = yxUser.getWxProfile();
+        if(wechatUserDto == null) {
+            return "";
+        }
+        if(StrUtil.isBlank(wechatUserDto.getOpenid())) {
+            return "";
+        }
+        return wechatUserDto.getOpenid();
+
+    }
+
+    /**
+     * 处理订单查询
+     * @param criteria YxStoreOrderQueryCriteria
+     * @param orderStatus 订单状态
+     * @param orderType 订单类型
+     * @return YxStoreOrderQueryCriteria
+     */
+    private YxStoreOrderQueryCriteria handleQuery(YxStoreOrderQueryCriteria criteria,String orderStatus,
+                                                  String orderType){
+
+        //默认查询所有快递订单
+        criteria.setShippingType(OrderInfoEnum.SHIPPIING_TYPE_1.getValue());
         //订单状态查询
         if (StrUtil.isNotEmpty(orderStatus)) {
             switch (orderStatus) {
+                case "0":
+                    criteria.setPaid(OrderInfoEnum.PAY_STATUS_0.getValue());
+                    criteria.setStatus(OrderInfoEnum.STATUS_0.getValue());
+                    criteria.setRefundStatus(OrderInfoEnum.REFUND_STATUS_0.getValue());
+                    break;
                 case "1":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setStatus(0);
-                    criteria.setRefundStatus(0);
+                    criteria.setPaid(OrderInfoEnum.PAY_STATUS_1.getValue());
+                    criteria.setStatus(OrderInfoEnum.STATUS_0.getValue());
+                    criteria.setRefundStatus(OrderInfoEnum.REFUND_STATUS_0.getValue());
                     break;
                 case "2":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setStatus(1);
-                    criteria.setRefundStatus(0);
+                    criteria.setPaid(OrderInfoEnum.PAY_STATUS_1.getValue());
+                    criteria.setStatus(OrderInfoEnum.STATUS_1.getValue());
+                    criteria.setRefundStatus(OrderInfoEnum.REFUND_STATUS_0.getValue());
                     break;
                 case "3":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setStatus(2);
-                    criteria.setRefundStatus(0);
+                    criteria.setPaid(OrderInfoEnum.PAY_STATUS_1.getValue());
+                    criteria.setStatus(OrderInfoEnum.STATUS_2.getValue());
+                    criteria.setRefundStatus(OrderInfoEnum.REFUND_STATUS_0.getValue());
                     break;
                 case "4":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setStatus(3);
-                    criteria.setRefundStatus(0);
+                    criteria.setPaid(OrderInfoEnum.PAY_STATUS_1.getValue());
+                    criteria.setStatus(OrderInfoEnum.STATUS_3.getValue());
+                    criteria.setRefundStatus(OrderInfoEnum.REFUND_STATUS_0.getValue());
                     break;
                 case "-1":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setRefundStatus(1);
+                    criteria.setPaid(OrderInfoEnum.PAY_STATUS_1.getValue());
+                    criteria.setRefundStatus(OrderInfoEnum.REFUND_STATUS_1.getValue());
                     break;
                 case "-2":
-                    criteria.setIsDel(0);
-                    criteria.setPaid(1);
-                    criteria.setRefundStatus(2);
-                    break;
-                case "-4":
-                    criteria.setIsDel(1);
+                    criteria.setPaid(OrderInfoEnum.PAY_STATUS_1.getValue());
+                    criteria.setRefundStatus(OrderInfoEnum.REFUND_STATUS_2.getValue());
                     break;
                 default:
-                    criteria.setIsDel(0);
-                    criteria.setPaid(0);
-                    criteria.setStatus(0);
-                    criteria.setRefundStatus(0);
             }
         }
         //订单类型查询
         if (StrUtil.isNotEmpty(orderType)) {
             switch (orderType) {
+                case "1":
+                    criteria.setBargainId(0);
+                    criteria.setCombinationId(0);
+                    criteria.setSeckillId(0);
+                    break;
                 case "2":
                     criteria.setNewCombinationId(0);
                     break;
@@ -487,12 +457,10 @@ public class StoreOrderController {
                     criteria.setShippingType(2);
                     break;
                 default:
-                    criteria.setBargainId(0);
-                    criteria.setCombinationId(0);
-                    criteria.setSeckillId(0);
             }
         }
-        return yxStoreOrderService.queryAll(criteria, pageable);
+
+        return criteria;
     }
 
 

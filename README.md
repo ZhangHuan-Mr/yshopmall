@@ -1,47 +1,197 @@
 <h1 style="text-align: center">yshop意象商城系统</h1>
 
-#### 3.2版本预告：
-1、新增商城装修模块
-
-2、新增商户订单通知
-
-3、提现接入企业付款接口
-
-4、新增app端后台版本控制
-
-5、新增商家端退款申请通知
-
-6、新增商品积分兑换模块（同步主商品sku）
-
-7、升级wxjava版本4.0.0
-
-8、升级springboot最新版本2.4.2
-
-9、新增docker一键部署方案
-
-10、后台商城首页优化
-
-11、新增快递鸟查询顺丰轨迹
-
-12、关键bug修复：
-  - 移除roketmq依赖及相关逻辑
-  - 修改退款扣库存
-  - 去除素材分组分页，防止素材过多显示不完全
-  - 修改订单金额为0时，支付不成功直接报错
 #### 项目简介
-yshop基于当前流行技术组合的前后端分离商城系统： SpringBoot2+MybatisPlus+SpringSecurity+jwt+redis+Vue的前后端分离的商城系统， 包含商城、小程序直播、拼团、砍价、商户管理、 秒杀、优惠券、积分、分销、会员、充值、多门店等功能，更适合企业或个人二次开发；；
+yshop基于当前流行技术组合的前后端分离商城系统： SpringBoot2+MybatisPlus+SpringSecurity+jwt+redis+Vue的前后端分离的商城系统， 包含分类、sku、运费模板、素材库、小程序直播、拼团、砍价、商户管理、 秒杀、优惠券、积分、分销、会员、充值、多门店等功能，更适合企业或个人二次开发；
 
 
 
-#### 官网体验地址（里面有演示地址与文档）
+# 官网体验地址（里面有演示地址与文档）
 |  官网文档地址  |  https://www.yixiang.co |
 |---|---|
 | 管理后台演示地址：  |   https://demo2.yixiang.co |
 | 关注公众号点击单商户体验小程序与H5  |  ![输入图片说明](https://images.gitee.com/uploads/images/2021/0121/154904_12c09826_477893.png) |
 
 
+# 本地安装
+### 基本环境（必备）
+- 1、JDK：8+
+- 2、Redis 3.0+
+- 3、Maven 3.0+
+- 4、MYSQL 5.7+
+- 5、Node v8+
+### 开发工具
+Idea、webstorm、vscode
 
-### docker部署
+### 后台系统工程（JAVA端）
+
+1、请确保redis已经安装启动
+
+2、下载代码
+```
+git clone https://gitee.com/guchengwuyue/yshopmall.git
+```
+3、idea打开项目加载依赖目录如下：
+
+<img src="https://doc.yixiang.co/img/test1.png"/>
+
+4、导入数据库，配置开发环境数据库信息及其redis信息，文件路径如下：
+
+<img src="https://doc.yixiang.co/img/test2.png"/>
+<img src="https://doc.yixiang.co/img/test3.png"/>
+<img src="https://doc.yixiang.co/img/test4.png"/>
+
+5、然后在父级pom.xml输入命令 mvn clean install 或者用idea工具操作
+
+<img src="https://doc.yixiang.co/img/test5.png"/>
+
+6、启动程序，启动程序路径如下：
+
+<img src="https://doc.yixiang.co/img/test6.png"/>
+
+
+
+### 后台前端工程（VUE端）
+1、请确保本地已经安装node,建议node8或者node10
+
+2、下载代码
+```
+git clone https://gitee.com/guchengwuyue/yshopmall_qd
+```
+3、cnpm install或者yarn install,当前所有命令必须当前工程目录下进行，目录结构如下：
+
+<img src="https://doc.yixiang.co/img/test8.png"/>
+
+4、在控制台输入命令：npm run dev，控制台打印出如下画面，恭喜表示本项目启动成功拉。
+<img src="https://doc.yixiang.co/img/test9.png"/>
+
+5、打开浏览器输入地址如图：
+
+默认超管账户密码：admin/123456
+
+
+# nginx线上部署
+
+### 后台系统（Java端）
+
+1、mvn install 或者直接idea打成jar包
+
+2、配置nginx 反向代理如下：
+```
+server{ 
+ listen 443 ssl;
+ server_name yshopapi.dayouqiantu.cn;
+        #listen [::]:81 default_server ipv6only=on;
+ #ssl on;
+ ssl_certificate httpssl/3034302_yshopapi.dayouqiantu.cn.pem;
+ ssl_certificate_key httpssl/3034302_yshopapi.dayouqiantu.cn.key;
+ ssl_session_timeout 5m;
+ ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+ ssl_prefer_server_ciphers on;
+ 
+
+ #error_page   404   /404.html;
+ #include enable-php.conf;
+   
+ location / {
+  proxy_pass http://127.0.0.1:8000;
+  proxy_set_header X-Forwarded-Proto $scheme;
+         proxy_set_header X-Forwarded-Port $server_port;
+         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+         proxy_set_header Upgrade $http_upgrade;
+         proxy_set_header Connection "upgrade";
+ }
+ 
+      
+ access_log  /home/wwwlogs/yshopapi.log;
+ 
+}
+```
+
+我配置的了ssl证书，如果不需要证书配置如下即可：
+
+```
+server{ 
+ listen 80;
+ server_name yshopapi.dayouqiantu.cn;
+        #listen [::]:81 default_server ipv6only=on;
+
+ #error_page   404   /404.html;
+ #include enable-php.conf;
+   
+ location / {
+  proxy_pass http://127.0.0.1:8000;
+  proxy_set_header X-Forwarded-Proto $scheme;
+         proxy_set_header X-Forwarded-Port $server_port;
+         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+         proxy_set_header Upgrade $http_upgrade;
+         proxy_set_header Connection "upgrade";
+ }
+  
+ access_log  /home/wwwlogs/yshopapi.log;
+ 
+}
+```
+
+
+
+### 后台前端工程（VUE端）
+1、输入命令：npm run build:prod 编译打包
+
+2、把打包后的dist目录代码上传到服务器
+
+3、配置nginx如下：
+```
+server
+{
+        listen 443 ssl;
+        #listen [::]:81 default_server ipv6only=on;
+ server_name www.yixiang.co;
+ #ssl on;
+ ssl_certificate httpssl/3414321_www.yixiang.co.pem;
+ ssl_certificate_key httpssl/3414321_www.yixiang.co.key;
+ ssl_session_timeout 5m;
+ ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_prefer_server_ciphers on;
+    index index.html;
+    root /home/wwwroot/system/yshop;
+
+
+    location / {
+        try_files $uri $uri/ @router;
+        index index.html;
+·   }
+ location @router {
+  rewrite ^.*$ /index.html last;
+ } 
+
+
+ location ~* \.(eot|ttf|woff)$ {
+              #  add_header Access-Control-Allow-Origin *;
+        }
+
+        location ~ .*\.(gif|jpg|jpeg|png|bmp|swf)$
+        {
+            expires      30d;
+        }
+
+        location ~ .*\.(js|css)?$
+        {
+            expires      12h;
+        }
+ 
+      
+ access_log  /home/wwwlogs/yshop.log;
+ 
+}
+
+```
+
+不需要证书如上面Java端配置一样去掉相关证书配置 改监听端口80即可
+
+
+# docker部署
 
 - 1、创建一个存储第三方软件服务Docker Compose文件目录：
 ```
@@ -72,6 +222,7 @@ yshop基于当前流行技术组合的前后端分离商城系统： SpringBoot2
   docker build -t yshop-admin .  
   ```
 
+# 项目说明
 #### 项目源码
 
 |     |  后台系统源码 |   后台系统前端源码  |
@@ -81,7 +232,7 @@ yshop基于当前流行技术组合的前后端分离商城系统： SpringBoot2
 
 
 
-## 商城功能
+### 商城功能
 
 * 一：商品模块：商品添加、规格设置，商品上下架等
 * 二：订单模块：下单、购物车、支付，发货、收货、评价、退款等
@@ -126,7 +277,7 @@ yshop基于当前流行技术组合的前后端分离商城系统： SpringBoot2
 </table>
 
 
-## 技术选型
+### 技术选型
 * 1 后端使用技术
     * 1.1 SpringBoot2
     * 1.2 mybatis、MyBatis-Plus

@@ -25,7 +25,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.4.2</version>
+        <version>2.4.6</version>
     </parent>
 
     <properties>
@@ -34,7 +34,7 @@
         <java.version>1.8</java.version>
         <jedis.version>2.9.0</jedis.version>
         <swagger.version>2.9.2</swagger.version>
-        <fastjson.version>1.2.74</fastjson.version>
+        <fastjson.version>1.2.75</fastjson.version>
         <druid.version>1.1.10</druid.version>
         <hutool.version>5.2.5</hutool.version>
         <commons-pool2.version>2.5.0</commons-pool2.version>
@@ -205,6 +205,11 @@
             <artifactId>UserAgentUtils</artifactId>
             <version>1.20</version>
         </dependency>
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>2.9.1</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -215,6 +220,21 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <nonFilteredFileExtensions>
+                        <nonFilteredFileExtension>jks</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>p12</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>pfx</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>so</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>dll</nonFilteredFileExtension>
+                    </nonFilteredFileExtensions>
                 </configuration>
             </plugin>
         </plugins>

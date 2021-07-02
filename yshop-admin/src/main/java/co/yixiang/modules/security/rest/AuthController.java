@@ -124,6 +124,7 @@ public class AuthController {
     @ApiOperation("获取验证码")
     @GetMapping(value = "/code")
     public ResponseEntity<Object> getCode() {
+        log.debug("---------获取验证码----开始-------------");
         // 算术类型 https://gitee.com/whvse/EasyCaptcha
         ArithmeticCaptcha captcha = new ArithmeticCaptcha(111, 36);
         // 几位数运算，默认是两位
@@ -143,7 +144,9 @@ public class AuthController {
             put("img", captcha.toBase64());
             put("uuid", uuid);
         }};
-        return ResponseEntity.ok(imgResult);
+        ResponseEntity<Object> ok = ResponseEntity.ok(imgResult);
+        log.debug("---------获取验证码----结束-------------response={}", ok);
+        return ok;
     }
 
     @ApiOperation("退出登录")
